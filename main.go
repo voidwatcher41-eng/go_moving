@@ -1,47 +1,35 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
+	"time"
 )
 
-// Todo represents a task from the JSONPlaceholder API.
-type Todo struct {
-	UserID    int    `json:"userId"`
-	ID        int    `json:"id"`
-	Title     string `json:"title"`
-	Completed bool   `json:"completed"`
-}
-
+// main fetches a Todo from a remote API, updates it and prints both the
+// original and updated representations.
 func main() {
-	// Perform GET request to fetch a Todo item.
-	resp, err := http.Get("https://jsonplaceholder.typicode.com/todos/1")
-	if err != nil {
-		log.Fatalf("error fetching todo: %v", err)
-	}
-	defer resp.Body.Close()
+	// Create a context with timeout to avoid hanging requests.
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
-	// Read response body.
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		log.Fatalf("error reading response: %v", err)
-	}
+	// Use an HTTP client with a sensible timeout.
+	client := &http.Client{Timeout: 5 * time.Second}
 
-	// Unmarshal JSON into Todo struct.
-	var todo Todo
-	if err := json.Unmarshal(body, &todo); err != nil {
-		log.Fatalf("error unmarshaling JSON: %v", err)
+	todo, err := FetchTodo(ctx, client, "https://jsonplaceholder.typicode.com/todos/1")
+	if err != nil {
+		log.Fatalf("fetch todo: %v", err)
 	}
 	fmt.Printf("Fetched Todo: %+v\n", todo)
 
-	// Modify the Todo and marshal back to JSON.
+	// Modify the Todo and marshal it back to JSON.
 	todo.Completed = true
-	updated, err := json.Marshal(todo)
+	updated, err := json.MarshalIndent(todo, "", "  ")
 	if err != nil {
-		log.Fatalf("error marshaling JSON: %v", err)
+		log.Fatalf("marshal todo: %v", err)
 	}
 	fmt.Printf("Updated JSON: %s\n", updated)
 }
